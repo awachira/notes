@@ -1,0 +1,90 @@
+* Definitions and pros/cons
+**** Async
+***** Challenges     
+      - Handling failed async requests
+      - Combining results or async calls
+      - User already closed view
+      - Several consumers to one data stream
+      - Composable functions to handle results
+      - Killing pending http requests
+***** RxJS    
+      A lib for reactive programming using Observables to make it easier to
+      compose asynchronous or callback-based code.
+
+      It's about pushing data to subscribers over time.
+****** Main RxJS players
+       - Observables: producer of sequences of values
+         Allows: 
+           subscribe/unsubscribe to data stream
+           Emit next value to observer
+           Notify observer about errors
+           Inform observer about stream completion
+         How to create:
+           Observable.from():        convert an array or iterable into Observable
+           Observable.create():      return Observable that invokes methods on Observer
+           Observable.fromEvent():   convert an event into Observable e.g. mouse click/move, keyup or other DOM events
+           Observable.fromPromise(): convert a Promise into Observable
+           Observable.range():       return a sequence of integers in the specified range
+******* Hot/Cold
+        Cold: Where an observable internally creates a new data producer for
+        each subscriber 
+
+        Hot: Each subscriber shares the data from the same external producer
+        starting from the moment of subscription. Produces data regardless of
+        whether there are subscribers or not.
+          Examples:
+            - Mouse events
+            - Stock prices feed
+            - An accelerometer in a smartphone
+******* Combining Rx.Observables        
+        - concat(): combine more than one stream in order of subscription. see 'concat.js'
+        - merge(): combine more streams in-order of whichever is available. see 'merge.js'
+        - mergeMap() === flatMap(): allow flattening nested Observables in-order.
+          - eliminate need to write nested subscribe()
+          - handles every value emitted by observable as another observable
+          - auto-subscribes to the internal observable and unwraps its values. see 'flatmap.js'
+        - switchMap(): similar to flatmap but can cancel subscriptions. useful for low b/w situations.
+        - flatMap vs switchMap(): 'see flatMap_vs_switchMap.js'
+        - zip(): combine observables of different types. see 'a_plus_b.js'
+        - combineLatest(): easy!
+
+       - Observer:    consumer of observable values
+         Provides:
+           Functions to handle next value, errors, and stream completion
+
+       - Subscriber:  connects observer with observable
+
+       - Operator: does en-route value transformation
+         Is a function that takes an Observable in and produce an Observable out
+         and can do some transformation.
+
+         Defn(Pure function): is a function that will always produce the same
+         results if the same input is provided; it never relies on any external
+         data; doesn't change the environment and is 'self-contained' in this
+         respect.
+
+         Defn(High order function): one that can take another function as an
+         argument or return another function.
+
+******* Operator: share()
+        Allows sharing the same observable between multiple subscribers. It can
+        take a cold observable to make it hot. (see 'share.js')
+
+******** Error handling operators 
+         - error():       invoked by Observable on Observer
+         - catch():       intercept error in subscriber before observer gets it: can be chained before invoking subscribe
+         - retry(n):      retry immediately up to 'n' times
+         - retryWhen(fn): retries as prescribed by argument function
+           'failover-catch.js': how to implement 'failover' using 'catch' statements.
+
+       - Subject: includes both Observable and Observer(s)
+******* Multicasting:
+        When we have multiple subscribers to a stream to whom we broadcast to. uses Rx.Subject
+        As Observer: call   '.next(...)' to multicast data
+        As Observable: call '.subscribe(...)'
+        See 'subject.js'
+******* BehaviorSubject:
+        Represents a value that changes over time. i.e. represents state.
+        Pushes to subscribers the latest value.
+        see: [[https://www.youtube.com/watch?v=NYNEH_k0e_4&feature=youtu.be][Mediator in Angular]]
+
