@@ -1,0 +1,273 @@
+* Webpack
+  Motivation is to gather all deps and generate a dependency graph.
+
+** Installation
+   Go into project directory and run
+   $ npm install webpack webpack-dev-server --save-dev
+
+   Next, create a 'webpack.config.js' file in the root and add two scripts to
+   the 'package.json' file for both local dev and prod.
+
+   "scripts": {
+     "start": "webpack-dev-server",
+     "build": "webpack"
+   }
+
+** Entry
+   The "entry point" is the root of our dep graph. The easiest way to specify it
+   is to pass a string:
+
+   var baseConfig = {
+      entry: './src/index.js'
+   };
+
+   and we could pass an object in case we need more than one entry in the
+   future: (this one scales better as the project grows)
+
+   var baseConfig = {
+      entry: {
+        main: './src/index.js'
+      }
+   };
+
+** Output
+   The "output" is an object holding the path where our bundles and assets will
+   go, as well as the name the entries will adopt.
+
+   var path = require('path');
+   var baseConfig = {
+      entry: {
+        main: './src/index.js'
+      },
+      output: {
+        filename: 'main.js',
+        path: path.resolve('./build')
+      }
+   };
+   module.exports = baseConfig;
+
+   Since 'entry' is an object, you can softcode the output filename with a
+   string like so:
+
+   output: {
+     filename: '[name].js',
+     path: path.resolve('./build')
+   }
+
+   so that when new entries are added, Webpack will pick up their key to form
+   the file name.
+
+   With just this small set of configs, we are already able to run a server and
+   develop locally with 
+
+   $ npm start
+
+   or
+
+   $ npm run build
+
+   to bundle our code for release. By knowing the deps of the project,
+   'webpack-dev-server' will watch them and reload the site when it detects a
+   change in any file.
+
+** Loaders
+   The goal of Webpack is to handle deps. Loaders provide an easy way to
+   intercept dependencies and preprocess them before they get bundled.
+
+   var baseConfig = {
+     // ...
+     module: {
+       rules: [{
+         test: /*RegEx*/,
+         use: [{
+           loader: /* loader name */,
+           query:  /* optional config object */
+         }]
+       }]
+     }
+   };
+   
+   For loaders to work, we need a regex to identify files we want to modify and
+   a string or an array with the loaders we want to use.
+
+** Styles
+   To allow Webpack to process our styles when required we install css and style
+   loaders.
+
+   $ npm install css-loader style-loader --save-dev
+
+   The 'css-loader' will interpret styles as deps, and the 'style-loader' will
+   automatically include a '<style>' tag with them on the page when the bundle
+   loads.
+
+   var baseConfig = {
+     entry: {
+       main: './src/index.js'
+     },
+     output: {
+       filename: '[name].js',
+       path: path.resolve('./build')
+     },
+     module: {
+       rules: [{
+         test: /\.css$/,
+         use: [
+           {loader: 'style-loader'},
+           {loader: 'css-loader'} ]
+       }]
+     }
+   };
+
+   In the example, 'main.css' will go first through 'css-loader' and then
+   'style-loader'.
+
+** Preprocessors
+   Adding support for LESS or any other preprocessor is as simple as installing
+   the corresponding loader and adding it to the rule.
+
+   rules: [
+     {
+        test: /\.less$/,
+        use: [
+           { loader: 'style-loader' },
+           { loader: 'css-loader' },
+           { loader: 'less-loader' }
+        ]
+     }
+   ]
+
+** Transpiling
+   JS can be transformed by loaders too. e.g using a Babel loader to transpile
+   our scripts:
+
+   rules: [
+     {
+        test: /\.js$/,
+        use: [
+           { loader: 'babel-loader' }
+        ]
+     }
+   ]
+
+** Images
+   Webpack can detect 'url()' statements inside stylesheets and let loaders
+   apply changes to the image file and the url itself.
+
+   // index.less file
+   @import 'less/vars';
+   body {
+     background-color: @background-color;
+     color: @text-color;
+   }
+   .logo {
+     background-image: url('./images/logo.svg');
+   }
+
+   By adding one rule, we could apply the 'file-loader' to just copy the file,
+   or use the 'url-loader' which inlines the image as a base64 string unless it
+   exceeds a byte limit, in which case it will replace the url statement with a
+   relative path and copy the file to the output location for us.
+
+   {
+      test: /\.svg$/,
+      use: [
+        {
+           loader: 'url-loader',
+           query: { limit: 10000 }
+        }
+      ]
+   }
+
+** Plugins
+   Webpack has default behaviors to bundle most type of resources. Plugins are
+   used to supplement this facility by modifying or adding capabilities to
+   Webpack.
+
+   e.g. Webpack by default includes our styles inside our bundle, but this can
+   be altered by introducing a plugin.
+
+*** Extracting Assets
+    A common use for a plugin is to extract the generated stylesheet and load it
+    as we normally do using a '<link>' tag.
+
+    var ExtractTextPlugin = require('extract-text-webpack-plugin');
+
+    var lessRules = {
+      use: [
+        { loader: 'css-loader' },
+        { loader: 'less-loader' }
+      ]
+    };
+
+    var baseConfig = {
+      // ...
+      module: {
+        rules: [
+         // ...
+         { test: /\.less$/, use: ExtractTextPlugin.extract(lessRules) }
+        ]
+      },
+      plugins: [
+        new ExtractTextPlugin('main.css')
+      ]
+    };
+
+*** Generate an 'index.html' file
+    When building SPAs, we usually need one '.html' file to serve it. The
+    'HtmlWebpackPlugin' automatically creates an 'index.html' file and adds
+    script tags for each resulting bundle. It also supports templating syntax
+    and is highly configurable.
+
+    var HTMLWebpackPlugin = require('html-webpack-plugin');
+    var baseConfig = {
+     // ...
+     plugins: [
+       new HTMLWebpackPlugin()
+     ]
+    };
+
+** Building for Production
+*** Define the Environment
+    A lot of libs introduce warnings that are useful during dev but have no use
+    in our prod bundle (they increase its size). To set global constants inside
+    your bundle:
+
+    var ENV = process.env.NODE_ENV;
+    var baseConfig = {
+      // ...
+      plugins: [
+        new webpack.DefinePlugin({
+          'process.env.NODE_ENV': JSON.stringify(ENV)
+        })
+      ]
+    };
+
+    we then specify the environment on our commands:
+
+    "scripts": {
+       "start": "NODE_ENV=development webpack-dev-server",
+       "build": "NODE_ENV=production webpack"
+    }
+
+    'process.env.NODE_ENV' will be replaced by a string, allowing compressors to
+    eliminate unreachable dev code branches. One can then introduce warnings in
+    the codebase for the team:
+
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('This warning will disappear on prod. build!');
+    }
+
+*** Compressing
+    By minifying code with remove unnecessary chars, we reduce the bundle size
+    and improv. loading times. Webpack comes with a built-in plugin that passes
+    code through 'UglifyJS'.
+
+    // webpack.config.js file
+    var ENV = process.env.NODE_ENV;
+    var baseConfig = {
+     // ...
+     plugins: []
+    };
+    if (ENV === 'production') {
+      baseConfig.plugins.push(new webpack.optimize.UglifyJsPlugin());
+    }
